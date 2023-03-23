@@ -7,9 +7,10 @@ from concurrent import futures
 from pathlib import Path
 from unittest import mock
 
-import ISLib.file_lock
 import pytest
 from pytest import mark
+
+import file_lock
 
 
 def wait_or_kill(
@@ -37,9 +38,9 @@ def file_to_lock() -> tp.Iterator[Path]:
 def test_file_lock_basics(file_to_lock: Path):
     lock_file_path = file_to_lock.with_name(file_to_lock.name + ".lock")
     with mock.patch.object(
-        ISLib.file_lock.os, ISLib.file_lock.os.makedirs.__name__
+        file_lock.os, file_lock.os.makedirs.__name__
     ) as mock_makedirs:
-        with ISLib.file_lock.file_lock(file_to_lock):
+        with file_lock.file_lock(file_to_lock):
             # file_lock does not create file_to_lock
             assert not file_to_lock.exists()
             # but it does create the .lock file
@@ -61,7 +62,7 @@ class FLBlocksEventsTuple(tp.NamedTuple):
 # must be global to be picklable
 def g_test_file_lock_blocks_p1(file_to_lock: Path, et: FLBlocksEventsTuple):
     # acquire the lock
-    with ISLib.file_lock.file_lock(file_to_lock):
+    with file_lock.file_lock(file_to_lock):
         et.p1_lock_acquired.set()
         assert not et.p2_lock_acquired.is_set()
     et.p1_lock_released.set()
@@ -72,7 +73,7 @@ def g_test_file_lock_blocks_p2(file_to_lock: Path, et: FLBlocksEventsTuple):
     et.p1_lock_acquired.wait()
 
     # attempt to acquire the lock (this should block with a sleep at least once)
-    with ISLib.file_lock.file_lock(file_to_lock):
+    with file_lock.file_lock(file_to_lock):
         assert et.p1_lock_released.is_set()
         et.p2_lock_acquired.set()
     et.p2_lock_released.set()
@@ -115,7 +116,7 @@ def test_file_lock_blocks(file_to_lock: Path):
 
 # must be global to be picklable
 def g_test_file_lock_many_processes_pall(file_to_lock: Path, value_to_store: int):
-    with ISLib.file_lock.file_lock(file_to_lock):
+    with file_lock.file_lock(file_to_lock):
         with open(file_to_lock, "w") as f:
             f.write(str(value_to_store))
         with open(file_to_lock, "r") as f:
